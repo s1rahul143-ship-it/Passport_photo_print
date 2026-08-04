@@ -43,6 +43,16 @@
         <input id="copiesInput" type="number" min="1" max="60" value="10">
       </label>
 
+      <label>
+        Photos per row (optional)
+        <input id="perRowInput" type="number" min="1" max="20" placeholder="auto">
+      </label>
+
+      <label>
+        Gap between photos (mm)
+        <input id="gapInput" type="number" step="0.25" min="0" value="0.5">
+      </label>
+
       <div class="buttons">
         <button id="generateBtn" disabled>Generate A4 Layout</button>
         <button id="printBtn" disabled>Print</button>
