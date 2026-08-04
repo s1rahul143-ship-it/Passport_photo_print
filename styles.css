@@ -15,12 +15,17 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,'Helvetica Neue',Arial;
 h1{font-size:1.25rem;margin-bottom:8px}
 .controls{display:flex;flex-direction:column;gap:8px;margin-bottom:16px}
 .file-label{display:inline-block}
-input[type="file"], input[type="number"]{display:block;margin-top:6px}
+input[type="file"], input[type="number"], select{display:block;margin-top:6px}
 .buttons{display:flex;gap:8px;margin-top:6px}
 button{padding:8px 12px;border-radius:6px;border:1px solid #ccc;background:#fff;cursor:pointer}
 button:disabled{opacity:0.5;cursor:not-allowed}
 .note{font-size:0.85rem;color:#444}
 .preview{display:flex;flex-direction:column;gap:12px}
+
+/* small helpers for custom size inputs */
+#customSizeInputs{display:flex;gap:8px;align-items:center}
+#customSizeInputs label{display:flex;flex-direction:column;font-size:0.9rem}
+#customSizeInputs input{width:6.5rem}
 
 /* A4 page container */
 .page{
