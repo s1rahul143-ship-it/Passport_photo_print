@@ -1,13 +1,37 @@
-// script.js — handles upload, layout generation, and printing
+// script.js — upload, crop, layout generation, printing, background selection
 
 const photoInput = document.getElementById('photoInput');
 const copiesInput = document.getElementById('copiesInput');
 const generateBtn = document.getElementById('generateBtn');
 const printBtn = document.getElementById('printBtn');
 const previewArea = document.getElementById('previewArea');
+const backgroundSelect = document.getElementById('backgroundSelect');
 
-let photoDataUrl = null;
+const cropModal = document.getElementById('cropModal');
+const cropImg = document.getElementById('cropImg');
+const cropViewport = document.getElementById('cropViewport');
+const zoomRange = document.getElementById('zoomRange');
+const applyCropBtn = document.getElementById('applyCrop');
+const cancelCropBtn = document.getElementById('cancelCrop');
 
+let originalDataUrl = null;   // raw uploaded image
+let croppedDataUrl = null;    // final cropped image used for layout
+let imgNaturalW = 0;
+let imgNaturalH = 0;
+
+// transform state for cropping
+let scale = 1;
+let tx = 0;
+let ty = 0;
+let dragging = false;
+let lastPointer = {x:0,y:0};
+
+function setDisabled(disabled){
+  generateBtn.disabled = disabled;
+  printBtn.disabled = disabled;
+}
+
+// Read file and open crop modal
 photoInput.addEventListener('change', () => {
   const file = photoInput.files && photoInput.files[0];
   if (!file) return setDisabled(true);
@@ -15,37 +39,125 @@ photoInput.addEventListener('change', () => {
 
   const reader = new FileReader();
   reader.onload = (e) => {
-    photoDataUrl = e.target.result;
-    setDisabled(false);
+    originalDataUrl = e.target.result;
+    openCropModal(originalDataUrl);
   };
   reader.readAsDataURL(file);
 });
 
-function setDisabled(disabled){
-  generateBtn.disabled = disabled;
-  printBtn.disabled = disabled;
+function openCropModal(dataUrl){
+  cropImg.src = dataUrl;
+  cropImg.style.transform = '';
+  scale = 1;
+  tx = 0;
+  ty = 0;
+  zoomRange.value = 100;
+  cropModal.style.display = 'flex';
+  cropImg.onload = () => {
+    imgNaturalW = cropImg.naturalWidth;
+    imgNaturalH = cropImg.naturalHeight;
+    // Fit image so it covers viewport minimally
+    const vw = cropViewport.clientWidth;
+    const vh = cropViewport.clientHeight;
+    const fitScale = Math.max(vw / imgNaturalW, vh / imgNaturalH);
+    scale = fitScale;
+    tx = (vw - imgNaturalW * scale) / 2;
+    ty = (vh - imgNaturalH * scale) / 2;
+    updateImageTransform();
+  };
 }
+
+// pointer-based panning
+cropViewport.addEventListener('pointerdown', (ev) => {
+  cropViewport.setPointerCapture(ev.pointerId);
+  dragging = true;
+  lastPointer.x = ev.clientX;
+  lastPointer.y = ev.clientY;
+});
+window.addEventListener('pointermove', (ev) => {
+  if (!dragging) return;
+  const dx = ev.clientX - lastPointer.x;
+  const dy = ev.clientY - lastPointer.y;
+  lastPointer.x = ev.clientX;
+  lastPointer.y = ev.clientY;
+  tx += dx;
+  ty += dy;
+  updateImageTransform();
+});
+window.addEventListener('pointerup', () => dragging = false);
+window.addEventListener('pointercancel', () => dragging = false);
+
+// zoom control
+zoomRange.addEventListener('input', (ev) => {
+  const newScale = Number(ev.target.value) / 100;
+  // keep viewport center stable
+  const vw = cropViewport.clientWidth;
+  const vh = cropViewport.clientHeight;
+  const centerX = (vw/2 - tx) / scale;
+  const centerY = (vh/2 - ty) / scale;
+  scale = newScale;
+  tx = vw/2 - centerX * scale;
+  ty = vh/2 - centerY * scale;
+  updateImageTransform();
+});
+
+// apply crop
+applyCropBtn.addEventListener('click', () => {
+  const vw = cropViewport.clientWidth;
+  const vh = cropViewport.clientHeight;
+  const canvas = document.createElement('canvas');
+  canvas.width = vw;
+  canvas.height = vh;
+  const ctx = canvas.getContext('2d');
+
+  // fill background with selected color
+  const bg = backgroundSelect.value || '#ffffff';
+  ctx.fillStyle = bg;
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  // convert displayed transform to source rectangle
+  const sx = clamp(( -tx ) / scale, 0, imgNaturalW);
+  const sy = clamp(( -ty ) / scale, 0, imgNaturalH);
+  const sWidth = clamp(canvas.width / scale, 0, imgNaturalW - sx);
+  const sHeight = clamp(canvas.height / scale, 0, imgNaturalH - sy);
+
+  ctx.drawImage(cropImg, sx, sy, sWidth, sHeight, 0, 0, canvas.width, canvas.height);
+
+  // keep PNG to preserve background color reliably
+  croppedDataUrl = canvas.toDataURL('image/png');
+  cropModal.style.display = 'none';
+  setDisabled(false);
+});
+
+// cancel crop
+cancelCropBtn.addEventListener('click', () => {
+  cropModal.style.display = 'none';
+  if (!croppedDataUrl) setDisabled(true);
+});
 
 generateBtn.addEventListener('click', () => {
   const copies = Math.max(1, Math.min(60, Number(copiesInput.value) || 1));
   copiesInput.value = copies;
-  if (!photoDataUrl) return alert('Upload a photo first');
-  generatePages(photoDataUrl, copies);
+  const useData = croppedDataUrl || originalDataUrl;
+  if (!useData) return alert('Upload and crop a photo first');
+  generatePages(useData, copies);
   printBtn.disabled = false;
 });
 
-printBtn.addEventListener('click', () => {
-  window.print();
-});
+printBtn.addEventListener('click', () => window.print());
+
+function clamp(v, a, b){ return Math.max(a, Math.min(b, v)); }
+
+function updateImageTransform(){
+  cropImg.style.transform = `translate(${tx}px, ${ty}px) scale(${scale})`;
+}
 
 function mmToNumber(mm){
-  // "35mm" -> 35 numeric if mm passed as number already, return number
   if (typeof mm === 'number') return mm;
   return parseFloat(mm.replace('mm',''));
 }
 
 function generatePages(dataUrl, copies){
-  // Page config from CSS variables (same units)
   const pageW = mmToNumber(getComputedStyle(document.documentElement).getPropertyValue('--page-w'));
   const pageH = mmToNumber(getComputedStyle(document.documentElement).getPropertyValue('--page-h'));
   const margin = mmToNumber(getComputedStyle(document.documentElement).getPropertyValue('--page-margin'));
@@ -53,19 +165,17 @@ function generatePages(dataUrl, copies){
   const photoH = mmToNumber(getComputedStyle(document.documentElement).getPropertyValue('--photo-h'));
   const gap = mmToNumber(getComputedStyle(document.documentElement).getPropertyValue('--photo-gap'));
 
-  // Available content area
   const availW = pageW - margin*2;
   const availH = pageH - margin*2;
 
-  // Compute how many columns and rows fit using simple packing
   const cols = Math.max(1, Math.floor( (availW + gap) / (photoW + gap) ));
   const rows = Math.max(1, Math.floor( (availH + gap) / (photoH + gap) ));
   const perPage = cols * rows;
 
-  // Clear preview
   previewArea.innerHTML = '';
-
   let remaining = copies;
+  const bg = backgroundSelect.value || '#ffffff';
+
   while (remaining > 0) {
     const onThisPage = Math.min(remaining, perPage);
     const page = document.createElement('div');
@@ -73,15 +183,14 @@ function generatePages(dataUrl, copies){
 
     const grid = document.createElement('div');
     grid.className = 'grid';
-    // set computed gap as inline style to ensure it matches measurement
     grid.style.gap = `${gap}mm`;
 
-    // Create slots
     for (let i = 0; i < onThisPage; i++){
       const slot = document.createElement('div');
       slot.className = 'photo-slot';
       slot.style.width = `${photoW}mm`;
       slot.style.height = `${photoH}mm`;
+      slot.style.background = bg;
 
       const img = document.createElement('img');
       img.src = dataUrl;
@@ -91,14 +200,11 @@ function generatePages(dataUrl, copies){
       grid.appendChild(slot);
     }
 
-    // If last row not full, we still keep spacing consistent — remaining slots are simply not created
     page.appendChild(grid);
     previewArea.appendChild(page);
-
     remaining -= onThisPage;
   }
 
-  // Add a short message about layout (onscreen helpfulness)
   const info = document.createElement('div');
   info.className = 'layout-info';
   info.style.marginTop = '8px';
