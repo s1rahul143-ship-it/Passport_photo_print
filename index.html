@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Passport Photo Print</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="app">
+    <h1>Passport Photo Print</h1>
+
+    <section class="controls">
+      <label class="file-label">
+        Upload photo (JPG, PNG)
+        <input id="photoInput" type="file" accept="image/jpeg,image/png">
+      </label>
+
+      <label>
+        Number of copies (1–60)
+        <input id="copiesInput" type="number" min="1" max="60" value="10">
+      </label>
+
+      <div class="buttons">
+        <button id="generateBtn" disabled>Generate A4 Layout</button>
+        <button id="printBtn" disabled>Print</button>
+      </div>
+
+      <p class="note">Photo placed without cropping. The app arranges images on A4 pages (210mm × 297mm). Works offline.</p>
+    </section>
+
+    <section id="previewArea" class="preview">
+      <!-- Generated A4 page(s) will appear here -->
+    </section>
+
+    <footer>
+      <small>Made for quick passport printing — no uploads to servers, everything runs in your browser.</small>
+    </footer>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>
