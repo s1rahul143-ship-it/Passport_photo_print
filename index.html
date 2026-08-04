@@ -17,6 +17,28 @@
       </label>
 
       <label>
+        Photo size
+        <select id="sizeSelect">
+          <option value="35x45">35 × 45 mm (common)</option>
+          <option value="40x50">40 × 50 mm</option>
+          <option value="51x51">51 × 51 mm (2 × 2 in)</option>
+          <option value="custom">Custom</option>
+        </select>
+      </label>
+
+      <div id="customSizeInputs" style="display:none">
+        <label>
+          Width (mm)
+          <input id="customW" type="number" min="1" value="35">
+        </label>
+        <label>
+          Height (mm)
+          <input id="customH" type="number" min="1" value="45">
+        </label>
+        <button id="applyCustomSize">Apply size</button>
+      </div>
+
+      <label>
         Number of copies (1–60)
         <input id="copiesInput" type="number" min="1" max="60" value="10">
       </label>
