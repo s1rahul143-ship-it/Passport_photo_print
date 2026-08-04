@@ -5,7 +5,7 @@
   --page-bg:#fff;
   --photo-w:27mm; /* adjusted to fit 6 photos per A4 row (was 35mm for 4 per row) */
   --photo-h:35mm; /* adjusted proportionally */
-  --photo-gap:1mm; /* reduced spacing for cutting purpose */
+  --photo-gap:0.5mm; /* reduced spacing for cutting purpose (was 1mm) */
   --page-margin:8mm; /* printable margin */
 }
 
