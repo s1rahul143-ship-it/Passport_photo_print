@@ -39,6 +39,18 @@
       </div>
 
       <label>
+        Background color
+        <select id="backgroundSelect">
+          <option value="#ffffff">White (none)</option>
+          <option value="#dfffe0">Light green</option>
+          <option value="#e6f0ff">Light blue</option>
+          <option value="#ffe6f0">Light pink</option>
+          <option value="#001f3f">Navy blue</option>
+          <option value="#cccccc">Gray</option>
+        </select>
+      </label>
+
+      <label>
         Number of copies (1–60)
         <input id="copiesInput" type="number" min="1" max="60" value="10">
       </label>
@@ -48,7 +60,7 @@
         <button id="printBtn" disabled>Print</button>
       </div>
 
-      <p class="note">Photo placed without cropping. The app arranges images on A4 pages (210mm × 297mm). Works offline.</p>
+      <p class="note">You can crop the uploaded photo and select a background color. The app arranges images on A4 pages (210mm × 297mm). Works offline.</p>
     </section>
 
     <section id="previewArea" class="preview">
@@ -59,6 +71,23 @@
       <small>Made for quick passport printing — no uploads to servers, everything runs in your browser.</small>
     </footer>
   </main>
+
+  <!-- Crop modal (hidden until an image is uploaded) -->
+  <div id="cropModal" class="crop-modal" style="display:none">
+    <div class="crop-container">
+      <div id="cropViewport" class="crop-viewport">
+        <img id="cropImg" src="" alt="to crop">
+      </div>
+
+      <div class="crop-controls">
+        <label>Zoom <input id="zoomRange" type="range" min="50" max="200" value="100"></label>
+        <div class="crop-buttons">
+          <button id="applyCrop">Apply crop</button>
+          <button id="cancelCrop">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <script src="script.js"></script>
 </body>
