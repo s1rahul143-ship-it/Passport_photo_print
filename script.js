@@ -33,16 +33,23 @@ function setDisabled(disabled){
 
 // Read file and open crop modal
 photoInput.addEventListener('change', () => {
-  const file = photoInput.files && photoInput.files[0];
-  if (!file) return setDisabled(true);
-  if (!/image\/(jpeg|png)/.test(file.type)) return alert('Please upload a JPG or PNG image');
+  try {
+    const file = photoInput.files && photoInput.files[0];
+    if (!file) return setDisabled(true);
+    if (!/image\/(jpeg|png)/.test(file.type)) return alert('Please upload a JPG or PNG image');
 
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    originalDataUrl = e.target.result;
-    openCropModal(originalDataUrl);
-  };
-  reader.readAsDataURL(file);
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      originalDataUrl = e.target.result;
+      // Allow generating immediately (user can skip cropping) but still open crop modal
+      setDisabled(false);
+      openCropModal(originalDataUrl);
+    };
+    reader.readAsDataURL(file);
+  } catch (err) {
+    console.error('Error handling file input:', err);
+    alert('An error occurred while reading the file. See console for details.');
+  }
 });
 
 function openCropModal(dataUrl){
@@ -103,36 +110,42 @@ zoomRange.addEventListener('input', (ev) => {
 
 // apply crop
 applyCropBtn.addEventListener('click', () => {
-  const vw = cropViewport.clientWidth;
-  const vh = cropViewport.clientHeight;
-  const canvas = document.createElement('canvas');
-  canvas.width = vw;
-  canvas.height = vh;
-  const ctx = canvas.getContext('2d');
+  try {
+    const vw = cropViewport.clientWidth;
+    const vh = cropViewport.clientHeight;
+    const canvas = document.createElement('canvas');
+    canvas.width = vw;
+    canvas.height = vh;
+    const ctx = canvas.getContext('2d');
 
-  // fill background with selected color
-  const bg = backgroundSelect.value || '#ffffff';
-  ctx.fillStyle = bg;
-  ctx.fillRect(0,0,canvas.width,canvas.height);
+    // fill background with selected color
+    const bg = backgroundSelect.value || '#ffffff';
+    ctx.fillStyle = bg;
+    ctx.fillRect(0,0,canvas.width,canvas.height);
 
-  // convert displayed transform to source rectangle
-  const sx = clamp(( -tx ) / scale, 0, imgNaturalW);
-  const sy = clamp(( -ty ) / scale, 0, imgNaturalH);
-  const sWidth = clamp(canvas.width / scale, 0, imgNaturalW - sx);
-  const sHeight = clamp(canvas.height / scale, 0, imgNaturalH - sy);
+    // convert displayed transform to source rectangle
+    const sx = clamp(( -tx ) / scale, 0, imgNaturalW);
+    const sy = clamp(( -ty ) / scale, 0, imgNaturalH);
+    const sWidth = clamp(canvas.width / scale, 0, imgNaturalW - sx);
+    const sHeight = clamp(canvas.height / scale, 0, imgNaturalH - sy);
 
-  ctx.drawImage(cropImg, sx, sy, sWidth, sHeight, 0, 0, canvas.width, canvas.height);
+    ctx.drawImage(cropImg, sx, sy, sWidth, sHeight, 0, 0, canvas.width, canvas.height);
 
-  // keep PNG to preserve background color reliably
-  croppedDataUrl = canvas.toDataURL('image/png');
-  cropModal.style.display = 'none';
-  setDisabled(false);
+    // keep PNG to preserve background color reliably
+    croppedDataUrl = canvas.toDataURL('image/png');
+    cropModal.style.display = 'none';
+    setDisabled(false);
+  } catch (err) {
+    console.error('Error applying crop:', err);
+    alert('An error occurred while applying the crop. See console.');
+  }
 });
 
 // cancel crop
 cancelCropBtn.addEventListener('click', () => {
   cropModal.style.display = 'none';
-  if (!croppedDataUrl) setDisabled(true);
+  // keep generate enabled if original image exists
+  if (!originalDataUrl && !croppedDataUrl) setDisabled(true);
 });
 
 generateBtn.addEventListener('click', () => {
@@ -158,56 +171,66 @@ function mmToNumber(mm){
 }
 
 function generatePages(dataUrl, copies){
-  const pageW = mmToNumber(getComputedStyle(document.documentElement).getPropertyValue('--page-w'));
-  const pageH = mmToNumber(getComputedStyle(document.documentElement).getPropertyValue('--page-h'));
-  const margin = mmToNumber(getComputedStyle(document.documentElement).getPropertyValue('--page-margin'));
-  const photoW = mmToNumber(getComputedStyle(document.documentElement).getPropertyValue('--photo-w'));
-  const photoH = mmToNumber(getComputedStyle(document.documentElement).getPropertyValue('--photo-h'));
-  const gap = mmToNumber(getComputedStyle(document.documentElement).getPropertyValue('--photo-gap'));
+  try {
+    const pageW = mmToNumber(getComputedStyle(document.documentElement).getPropertyValue('--page-w'));
+    const pageH = mmToNumber(getComputedStyle(document.documentElement).getPropertyValue('--page-h'));
+    const margin = mmToNumber(getComputedStyle(document.documentElement).getPropertyValue('--page-margin'));
+    const photoW = mmToNumber(getComputedStyle(document.documentElement).getPropertyValue('--photo-w'));
+    const photoH = mmToNumber(getComputedStyle(document.documentElement).getPropertyValue('--photo-h'));
+    const gap = mmToNumber(getComputedStyle(document.documentElement).getPropertyValue('--photo-gap'));
 
-  const availW = pageW - margin*2;
-  const availH = pageH - margin*2;
+    // debug logging
+    console.log('Layout params (mm):', {pageW, pageH, margin, photoW, photoH, gap});
 
-  const cols = Math.max(1, Math.floor( (availW + gap) / (photoW + gap) ));
-  const rows = Math.max(1, Math.floor( (availH + gap) / (photoH + gap) ));
-  const perPage = cols * rows;
+    const availW = pageW - margin*2;
+    const availH = pageH - margin*2;
 
-  previewArea.innerHTML = '';
-  let remaining = copies;
-  const bg = backgroundSelect.value || '#ffffff';
+    const cols = Math.max(1, Math.floor( (availW + gap) / (photoW + gap) ));
+    const rows = Math.max(1, Math.floor( (availH + gap) / (photoH + gap) ));
+    const perPage = cols * rows;
 
-  while (remaining > 0) {
-    const onThisPage = Math.min(remaining, perPage);
-    const page = document.createElement('div');
-    page.className = 'page';
+    console.log('Computed grid:', {availW, availH, cols, rows, perPage});
 
-    const grid = document.createElement('div');
-    grid.className = 'grid';
-    grid.style.gap = `${gap}mm`;
+    previewArea.innerHTML = '';
+    let remaining = copies;
+    const bg = backgroundSelect.value || '#ffffff';
 
-    for (let i = 0; i < onThisPage; i++){
-      const slot = document.createElement('div');
-      slot.className = 'photo-slot';
-      slot.style.width = `${photoW}mm`;
-      slot.style.height = `${photoH}mm`;
-      slot.style.background = bg;
+    while (remaining > 0) {
+      const onThisPage = Math.min(remaining, perPage);
+      const page = document.createElement('div');
+      page.className = 'page';
 
-      const img = document.createElement('img');
-      img.src = dataUrl;
-      img.alt = 'passport photo';
+      const grid = document.createElement('div');
+      grid.className = 'grid';
+      grid.style.gap = `${gap}mm`;
 
-      slot.appendChild(img);
-      grid.appendChild(slot);
+      for (let i = 0; i < onThisPage; i++){
+        const slot = document.createElement('div');
+        slot.className = 'photo-slot';
+        slot.style.width = `${photoW}mm`;
+        slot.style.height = `${photoH}mm`;
+        slot.style.background = bg;
+
+        const img = document.createElement('img');
+        img.src = dataUrl;
+        img.alt = 'passport photo';
+
+        slot.appendChild(img);
+        grid.appendChild(slot);
+      }
+
+      page.appendChild(grid);
+      previewArea.appendChild(page);
+      remaining -= onThisPage;
     }
 
-    page.appendChild(grid);
-    previewArea.appendChild(page);
-    remaining -= onThisPage;
+    const info = document.createElement('div');
+    info.className = 'layout-info';
+    info.style.marginTop = '8px';
+    info.textContent = `Generated ${copies} copies across ${Math.ceil(copies / perPage)} page(s). Each page: ${cols}×${rows} grid, ${perPage} per page.`;
+    previewArea.appendChild(info);
+  } catch (err) {
+    console.error('Error generating pages:', err);
+    alert('An error occurred while generating the pages. See console.');
   }
-
-  const info = document.createElement('div');
-  info.className = 'layout-info';
-  info.style.marginTop = '8px';
-  info.textContent = `Generated ${copies} copies across ${Math.ceil(copies / perPage)} page(s). Each page: ${cols}×${rows} grid, ${perPage} per page.`;
-  previewArea.appendChild(info);
 }
